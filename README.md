@@ -1,1 +1,1 @@
-codex-app
+Codex App
