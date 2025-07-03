@@ -13,6 +13,8 @@ config.resolver = {
   ...config.resolver,
   nodeModulesPaths: [path.resolve(__dirname, 'node_modules')],
   sourceExts: ['js', 'jsx', 'ts', 'tsx', 'json'],
+  unstable_enablePackageExports: true,
+  unstable_enableSymlinks: true,
 };
 
 module.exports = config;
