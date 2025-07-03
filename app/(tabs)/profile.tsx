@@ -7,9 +7,11 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Alert,
+  Switch,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { router } from 'expo-router';
 import { 
   User, 
@@ -20,12 +22,18 @@ import {
   HelpCircle,
   Mail,
   Calendar,
-  ChevronRight
+  ChevronRight,
+  Moon,
+  Sun,
+  Palette
 } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const { colors, theme, toggleTheme } = useTheme();
   const [notifications, setNotifications] = useState(true);
+
+  const styles = createStyles(colors);
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -54,13 +62,15 @@ export default function ProfileScreen() {
     title, 
     subtitle, 
     onPress, 
-    showChevron = true 
+    showChevron = true,
+    rightComponent
   }: {
     icon: React.ReactNode;
     title: string;
     subtitle?: string;
     onPress: () => void;
     showChevron?: boolean;
+    rightComponent?: React.ReactNode;
   }) => (
     <TouchableOpacity style={styles.optionButton} onPress={onPress}>
       <View style={styles.optionContent}>
@@ -74,22 +84,22 @@ export default function ProfileScreen() {
           )}
         </View>
       </View>
-      {showChevron && (
-        <ChevronRight size={20} color="#9CA3AF" />
-      )}
+      {rightComponent || (showChevron && (
+        <ChevronRight size={20} color={colors.textSecondary} />
+      ))}
     </TouchableOpacity>
   );
 
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={['#8B5CF6', '#3B82F6']}
+        colors={[colors.secondary, colors.primary]}
         style={styles.header}
       >
         <View style={styles.profileHeader}>
           <View style={styles.avatarContainer}>
             <View style={styles.avatar}>
-              <User size={32} color="#fff" />
+              <User size={32} color={colors.surface} />
             </View>
           </View>
           <Text style={styles.userName}>{user?.email}</Text>
@@ -103,7 +113,7 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Account</Text>
           
           <ProfileOption
-            icon={<Mail size={20} color="#3B82F6" />}
+            icon={<Mail size={20} color={colors.primary} />}
             title="Email"
             subtitle={user?.email}
             onPress={() => {}}
@@ -111,11 +121,38 @@ export default function ProfileScreen() {
           />
           
           <ProfileOption
-            icon={<Calendar size={20} color="#3B82F6" />}
+            icon={<Calendar size={20} color={colors.primary} />}
             title="Member Since"
             subtitle={new Date(user?.created_at || '').toLocaleDateString()}
             onPress={() => {}}
             showChevron={false}
+          />
+        </View>
+
+        {/* Appearance Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Appearance</Text>
+          
+          <ProfileOption
+            icon={theme === 'dark' ? <Moon size={20} color={colors.primary} /> : <Sun size={20} color={colors.primary} />}
+            title="Dark Mode"
+            subtitle={theme === 'dark' ? 'Enabled' : 'Disabled'}
+            onPress={toggleTheme}
+            rightComponent={
+              <Switch
+                value={theme === 'dark'}
+                onValueChange={toggleTheme}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.surface}
+              />
+            }
+          />
+          
+          <ProfileOption
+            icon={<Palette size={20} color={colors.primary} />}
+            title="Theme Customization"
+            subtitle="Customize colors and appearance"
+            onPress={() => Alert.alert('Theme', 'Theme customization coming soon!')}
           />
         </View>
 
@@ -124,21 +161,29 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Settings</Text>
           
           <ProfileOption
-            icon={<Bell size={20} color="#3B82F6" />}
+            icon={<Bell size={20} color={colors.primary} />}
             title="Notifications"
             subtitle={notifications ? 'Enabled' : 'Disabled'}
             onPress={() => setNotifications(!notifications)}
+            rightComponent={
+              <Switch
+                value={notifications}
+                onValueChange={setNotifications}
+                trackColor={{ false: colors.border, true: colors.primary }}
+                thumbColor={colors.surface}
+              />
+            }
           />
           
           <ProfileOption
-            icon={<Shield size={20} color="#3B82F6" />}
+            icon={<Shield size={20} color={colors.primary} />}
             title="Privacy & Security"
             subtitle="Manage your privacy settings"
             onPress={() => Alert.alert('Privacy', 'Privacy settings coming soon!')}
           />
           
           <ProfileOption
-            icon={<Settings size={20} color="#3B82F6" />}
+            icon={<Settings size={20} color={colors.primary} />}
             title="App Settings"
             subtitle="Customize your experience"
             onPress={() => Alert.alert('Settings', 'App settings coming soon!')}
@@ -150,14 +195,14 @@ export default function ProfileScreen() {
           <Text style={styles.sectionTitle}>Support</Text>
           
           <ProfileOption
-            icon={<HelpCircle size={20} color="#3B82F6" />}
+            icon={<HelpCircle size={20} color={colors.primary} />}
             title="Help & Support"
             subtitle="Get help with your account"
             onPress={() => Alert.alert('Support', 'Support coming soon!')}
           />
           
           <ProfileOption
-            icon={<Mail size={20} color="#3B82F6" />}
+            icon={<Mail size={20} color={colors.primary} />}
             title="Contact Us"
             subtitle="Send us feedback"
             onPress={() => Alert.alert('Contact', 'Contact form coming soon!')}
@@ -170,24 +215,25 @@ export default function ProfileScreen() {
             style={styles.signOutButton}
             onPress={handleSignOut}
           >
-            <LogOut size={20} color="#EF4444" />
+            <LogOut size={20} color={colors.error} />
             <Text style={styles.signOutText}>Sign Out</Text>
           </TouchableOpacity>
         </View>
 
         {/* App Version */}
         <View style={styles.versionContainer}>
-          <Text style={styles.versionText}>Content Manager v1.0.0</Text>
+          <Text style={styles.versionText}>Content Manager v2.0.0</Text>
+          <Text style={styles.versionSubtext}>Enhanced with AI & Analytics</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   header: {
     paddingHorizontal: 20,
@@ -211,7 +257,7 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.surface,
     marginBottom: 4,
   },
   userRole: {
@@ -227,7 +273,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: colors.text,
     marginHorizontal: 20,
     marginBottom: 12,
   },
@@ -235,17 +281,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     marginHorizontal: 20,
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderRadius: 12,
     marginBottom: 8,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
@@ -259,7 +302,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.primary + '20',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -270,29 +313,29 @@ const styles = StyleSheet.create({
   optionTitle: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1F2937',
+    color: colors.text,
   },
   optionSubtitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textSecondary,
     marginTop: 2,
   },
   signOutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     marginHorizontal: 20,
     paddingVertical: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FEE2E2',
+    borderColor: colors.error + '40',
+    gap: 8,
   },
   signOutText: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#EF4444',
-    marginLeft: 8,
+    color: colors.error,
   },
   versionContainer: {
     alignItems: 'center',
@@ -300,6 +343,12 @@ const styles = StyleSheet.create({
   },
   versionText: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  versionSubtext: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 2,
   },
 });

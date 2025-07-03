@@ -1,17 +1,20 @@
 import { Tabs } from 'expo-router';
-import { Home, Camera, FileText, Settings } from 'lucide-react-native';
+import { Home, Camera, FileText, BarChart3, Settings } from 'lucide-react-native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
+  const { colors } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#3B82F6',
-        tabBarInactiveTintColor: '#6B7280',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: '#fff',
+          backgroundColor: colors.surface,
           borderTopWidth: 1,
-          borderTopColor: '#E5E7EB',
+          borderTopColor: colors.border,
           height: 90,
           paddingTop: 8,
           paddingBottom: 24,
@@ -47,6 +50,15 @@ export default function TabLayout() {
           title: 'Dashboard',
           tabBarIcon: ({ size, color }) => (
             <FileText size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="analytics"
+        options={{
+          title: 'Analytics',
+          tabBarIcon: ({ size, color }) => (
+            <BarChart3 size={size} color={color} />
           ),
         }}
       />

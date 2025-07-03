@@ -13,30 +13,46 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { supabase } from '@/lib/supabase';
+import { useAI } from '@/hooks/useAI';
+import { useScheduling } from '@/hooks/useScheduling';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { AIAssistant } from '@/components/AIAssistant';
+import { ScheduleModal } from '@/components/ScheduleModal';
 import { 
   Camera, 
   ImageIcon, 
   Video, 
-  Wand2, 
   Upload,
   X,
   Check,
-  ArrowLeft
+  ArrowLeft,
+  Calendar,
+  Tag,
+  Plus
 } from 'lucide-react-native';
 
 export default function CreateScreen() {
   const { user } = useAuth();
+  const { colors } = useTheme();
+  const { generateTags } = useAI();
+  const { schedulePost } = useScheduling();
+  
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [contentType, setContentType] = useState<'post' | 'story' | 'video'>('post');
+  const [contentType, setContentType] = useState<'post' | 'carousel' | 'video' | 'story'>('post');
   const [media, setMedia] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState('');
   const [uploading, setUploading] = useState(false);
   const [showCamera, setShowCamera] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [cameraType, setCameraType] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
+
+  const styles = createStyles(colors);
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -76,21 +92,25 @@ export default function CreateScreen() {
     return publicUrl;
   };
 
-  const generateAICaption = async () => {
-    // Mock AI caption generation
-    const prompts = [
-      'Capturing moments that matter ✨',
-      'Life is beautiful when shared 🌟',
-      'Creating memories, one post at a time 📸',
-      'Inspiration found in everyday moments 💫',
-      'Sharing the journey, celebrating the story 🎉',
-    ];
-    
-    const randomCaption = prompts[Math.floor(Math.random() * prompts.length)];
-    setDescription(randomCaption);
+  const handleGenerateTags = async () => {
+    if (title || description) {
+      const suggestedTags = await generateTags(title, description);
+      setTags(prev => [...new Set([...prev, ...suggestedTags])]);
+    }
   };
 
-  const handleSubmit = async () => {
+  const addTag = () => {
+    if (newTag.trim() && !tags.includes(newTag.trim())) {
+      setTags([...tags, newTag.trim()]);
+      setNewTag('');
+    }
+  };
+
+  const removeTag = (tagToRemove: string) => {
+    setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleSubmit = async (shouldSchedule = false) => {
     if (!title.trim()) {
       Alert.alert('Error', 'Please enter a title');
       return;
@@ -106,7 +126,7 @@ export default function CreateScreen() {
       }
 
       // Save content to database
-      const { error } = await supabase
+      const { data: content, error } = await supabase
         .from('contents')
         .insert([
           {
@@ -115,11 +135,19 @@ export default function CreateScreen() {
             description,
             type: contentType,
             media: uploadedMedia,
-            status: 'draft',
+            tags,
+            status: shouldSchedule ? 'pending_approval' : 'draft',
           },
-        ]);
+        ])
+        .select()
+        .single();
 
       if (error) throw error;
+
+      if (shouldSchedule) {
+        setShowScheduleModal(true);
+        return content;
+      }
 
       Alert.alert('Success', 'Content created successfully!');
       
@@ -127,11 +155,28 @@ export default function CreateScreen() {
       setTitle('');
       setDescription('');
       setMedia([]);
+      setTags([]);
       setContentType('post');
     } catch (error: any) {
       Alert.alert('Error', error.message);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleSchedule = async (date: Date) => {
+    const content = await handleSubmit(true);
+    if (content) {
+      const success = await schedulePost(content.id, date);
+      if (success) {
+        Alert.alert('Success', 'Content scheduled successfully!');
+        // Reset form
+        setTitle('');
+        setDescription('');
+        setMedia([]);
+        setTags([]);
+        setContentType('post');
+      }
     }
   };
 
@@ -174,7 +219,7 @@ export default function CreateScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <LinearGradient
-        colors={['#8B5CF6', '#3B82F6']}
+        colors={[colors.secondary, colors.primary]}
         style={styles.header}
       >
         <Text style={styles.headerTitle}>Create Content</Text>
@@ -186,7 +231,7 @@ export default function CreateScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Content Type</Text>
           <View style={styles.typeSelector}>
-            {(['post', 'story', 'video'] as const).map((type) => (
+            {(['post', 'carousel', 'video', 'story'] as const).map((type) => (
               <TouchableOpacity
                 key={type}
                 style={[
@@ -216,7 +261,7 @@ export default function CreateScreen() {
             value={title}
             onChangeText={setTitle}
             placeholder="Enter content title"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textSecondary}
           />
         </View>
 
@@ -224,23 +269,59 @@ export default function CreateScreen() {
         <View style={styles.section}>
           <View style={styles.labelRow}>
             <Text style={styles.label}>Description</Text>
-            <TouchableOpacity
-              style={styles.aiButton}
-              onPress={generateAICaption}
-            >
-              <Wand2 size={16} color="#8B5CF6" />
-              <Text style={styles.aiButtonText}>AI Generate</Text>
-            </TouchableOpacity>
+            <AIAssistant
+              contentId="new"
+              currentText={description}
+              onSuggestionApplied={setDescription}
+            />
           </View>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={description}
             onChangeText={setDescription}
             placeholder="Enter content description"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.textSecondary}
             multiline
             numberOfLines={4}
           />
+        </View>
+
+        {/* Tags Section */}
+        <View style={styles.section}>
+          <View style={styles.labelRow}>
+            <Text style={styles.label}>Tags</Text>
+            <TouchableOpacity onPress={handleGenerateTags} style={styles.generateTagsButton}>
+              <Tag size={16} color={colors.primary} />
+              <Text style={styles.generateTagsText}>Generate</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.tagInputContainer}>
+            <TextInput
+              style={styles.tagInput}
+              value={newTag}
+              onChangeText={setNewTag}
+              placeholder="Add a tag"
+              placeholderTextColor={colors.textSecondary}
+              onSubmitEditing={addTag}
+            />
+            <TouchableOpacity onPress={addTag} style={styles.addTagButton}>
+              <Plus size={20} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+          
+          {tags.length > 0 && (
+            <View style={styles.tagsContainer}>
+              {tags.map((tag, index) => (
+                <View key={index} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                  <TouchableOpacity onPress={() => removeTag(tag)}>
+                    <X size={14} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Media Selection */}
@@ -248,11 +329,11 @@ export default function CreateScreen() {
           <Text style={styles.label}>Media</Text>
           <View style={styles.mediaButtons}>
             <TouchableOpacity style={styles.mediaButton} onPress={pickImage}>
-              <ImageIcon size={20} color="#3B82F6" />
+              <ImageIcon size={20} color={colors.primary} />
               <Text style={styles.mediaButtonText}>Gallery</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.mediaButton} onPress={takePhoto}>
-              <Camera size={20} color="#3B82F6" />
+              <Camera size={20} color={colors.primary} />
               <Text style={styles.mediaButtonText}>Camera</Text>
             </TouchableOpacity>
           </View>
@@ -277,37 +358,49 @@ export default function CreateScreen() {
           )}
         </View>
 
-        {/* Submit Button */}
+        {/* Action Buttons */}
         <View style={styles.section}>
-          <TouchableOpacity
-            style={[styles.submitButton, uploading && styles.submitButtonDisabled]}
-            onPress={handleSubmit}
-            disabled={uploading}
-          >
-            <LinearGradient
-              colors={['#10B981', '#059669']}
-              style={styles.submitButtonGradient}
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.scheduleButton]}
+              onPress={() => setShowScheduleModal(true)}
+              disabled={uploading}
+            >
+              <Calendar size={20} color={colors.surface} />
+              <Text style={styles.actionButtonText}>Schedule</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.actionButton, styles.publishButton]}
+              onPress={() => handleSubmit(false)}
+              disabled={uploading}
             >
               {uploading ? (
-                <Upload size={20} color="#fff" />
+                <Upload size={20} color={colors.surface} />
               ) : (
-                <Check size={20} color="#fff" />
+                <Check size={20} color={colors.surface} />
               )}
-              <Text style={styles.submitButtonText}>
-                {uploading ? 'Creating...' : 'Create Content'}
+              <Text style={styles.actionButtonText}>
+                {uploading ? 'Creating...' : 'Save Draft'}
               </Text>
-            </LinearGradient>
-          </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
+
+      <ScheduleModal
+        visible={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        onSchedule={handleSchedule}
+      />
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   header: {
     paddingHorizontal: 20,
@@ -317,7 +410,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.surface,
   },
   headerSubtitle: {
     fontSize: 16,
@@ -334,12 +427,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
+    color: colors.text,
     marginBottom: 12,
   },
   typeSelector: {
     flexDirection: 'row',
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
     borderRadius: 12,
     padding: 4,
   },
@@ -350,20 +443,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   typeButtonActive: {
-    backgroundColor: '#3B82F6',
+    backgroundColor: colors.primary,
   },
   typeButtonText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6B7280',
+    color: colors.textSecondary,
   },
   typeButtonTextActive: {
-    color: '#fff',
+    color: colors.surface,
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1F2937',
+    color: colors.text,
     marginBottom: 8,
   },
   labelRow: {
@@ -373,51 +466,92 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
-    color: '#1F2937',
+    color: colors.text,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
   },
   textArea: {
     height: 100,
     textAlignVertical: 'top',
   },
-  aiButton: {
+  generateTagsButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surface,
     borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 4,
   },
-  aiButtonText: {
-    marginLeft: 4,
+  generateTagsText: {
     fontSize: 14,
-    color: '#8B5CF6',
+    color: colors.primary,
+    fontWeight: '500',
+  },
+  tagInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingRight: 8,
+  },
+  tagInput: {
+    flex: 1,
+    padding: 16,
+    fontSize: 16,
+    color: colors.text,
+  },
+  addTagButton: {
+    padding: 8,
+  },
+  tagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 12,
+    gap: 8,
+  },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '20',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  tagText: {
+    fontSize: 14,
+    color: colors.primary,
     fontWeight: '500',
   },
   mediaButtons: {
     flexDirection: 'row',
     marginBottom: 16,
+    gap: 12,
   },
   mediaButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    marginRight: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
+    gap: 8,
   },
   mediaButtonText: {
-    marginLeft: 8,
     fontSize: 16,
-    color: '#3B82F6',
+    color: colors.primary,
     fontWeight: '500',
   },
   mediaPreview: {
@@ -437,31 +571,36 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -8,
     right: -8,
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.error,
     borderRadius: 12,
     width: 24,
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  submitButton: {
-    borderRadius: 12,
-    overflow: 'hidden',
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  submitButtonDisabled: {
-    opacity: 0.6,
-  },
-  submitButtonGradient: {
+  actionButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
   },
-  submitButtonText: {
-    marginLeft: 8,
+  scheduleButton: {
+    backgroundColor: colors.warning,
+  },
+  publishButton: {
+    backgroundColor: colors.success,
+  },
+  actionButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.surface,
   },
   cameraContainer: {
     flex: 1,
