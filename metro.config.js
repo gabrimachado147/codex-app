@@ -14,8 +14,8 @@ config.resolver = {
   nodeModulesPaths: [path.resolve(__dirname, 'node_modules')],
   sourceExts: ['js', 'jsx', 'ts', 'tsx', 'json'],
   resolverMainFields: ['react-native', 'browser', 'module', 'main'],
-  unstable_enablePackageExports: true,
-  unstable_enableSymlinks: true,
+  unstable_enablePackageExports: false,
+  unstable_enableSymlinks: false,
 };
 
 module.exports = config;
