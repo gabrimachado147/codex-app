@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,13 +21,28 @@ import * as ImagePicker from 'expo-image-picker';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { AIAssistant } from '@/components/AIAssistant';
 import { ScheduleModal } from '@/components/ScheduleModal';
-import { Camera, Image as ImageIcon, Video, Upload, X, Check, ArrowLeft, Calendar, Tag, Plus } from 'lucide-react-native';
+import { 
+  Camera, 
+  Image as ImageIcon, 
+  Video, 
+  Upload, 
+  X, 
+  Check, 
+  ArrowLeft, 
+  Calendar, 
+  Tag, 
+  Plus,
+  Sparkles,
+  Save
+} from 'lucide-react-native';
+import { router, useLocalSearchParams } from 'expo-router';
 
 export default function CreateScreen() {
   const { user } = useAuth();
   const { colors } = useTheme();
   const { generateTags } = useAI();
   const { schedulePost } = useScheduling();
+  const params = useLocalSearchParams();
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -40,8 +55,39 @@ export default function CreateScreen() {
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [cameraType, setCameraType] = useState<CameraType>('back');
   const [permission, requestPermission] = useCameraPermissions();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const styles = createStyles(colors);
+
+  useEffect(() => {
+    if (params.edit) {
+      loadContentForEditing(params.edit as string);
+    }
+  }, [params.edit]);
+
+  const loadContentForEditing = async (contentId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('contents')
+        .select('*')
+        .eq('id', contentId)
+        .single();
+
+      if (error) throw error;
+
+      setTitle(data.title);
+      setDescription(data.description || '');
+      setContentType(data.type);
+      setMedia(data.media || []);
+      setTags(data.tags || []);
+      setIsEditing(true);
+      setEditingId(contentId);
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to load content for editing');
+      router.back();
+    }
+  };
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -99,7 +145,7 @@ export default function CreateScreen() {
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
-  const handleSubmit = async (shouldSchedule = false) => {
+  const handleSubmit = async (shouldSchedule = false, status = 'draft') => {
     if (!title.trim()) {
       Alert.alert('Error', 'Please enter a title');
       return;
@@ -110,42 +156,67 @@ export default function CreateScreen() {
       // Upload media files
       const uploadedMedia = [];
       for (const uri of media) {
-        const publicUrl = await uploadMedia(uri);
-        uploadedMedia.push(publicUrl);
+        if (uri.startsWith('http')) {
+          // Already uploaded
+          uploadedMedia.push(uri);
+        } else {
+          // New file to upload
+          const publicUrl = await uploadMedia(uri);
+          uploadedMedia.push(publicUrl);
+        }
       }
 
-      // Save content to database
-      const { data: content, error } = await supabase
-        .from('contents')
-        .insert([
-          {
-            user_id: user?.id,
-            title,
-            description,
-            type: contentType,
-            media: uploadedMedia,
-            tags,
-            status: shouldSchedule ? 'pending_approval' : 'draft',
-          },
-        ])
-        .select()
-        .single();
+      const contentData = {
+        title,
+        description,
+        type: contentType,
+        media: uploadedMedia,
+        tags,
+        status: shouldSchedule ? 'pending_approval' : status,
+      };
 
-      if (error) throw error;
+      let content;
+      if (isEditing && editingId) {
+        // Update existing content
+        const { data, error } = await supabase
+          .from('contents')
+          .update(contentData)
+          .eq('id', editingId)
+          .select()
+          .single();
+
+        if (error) throw error;
+        content = data;
+      } else {
+        // Create new content
+        const { data, error } = await supabase
+          .from('contents')
+          .insert([
+            {
+              user_id: user?.id,
+              ...contentData,
+            },
+          ])
+          .select()
+          .single();
+
+        if (error) throw error;
+        content = data;
+      }
 
       if (shouldSchedule) {
         setShowScheduleModal(true);
         return content;
       }
 
-      Alert.alert('Success', 'Content created successfully!');
+      Alert.alert(
+        'Success', 
+        isEditing ? 'Content updated successfully!' : 'Content created successfully!'
+      );
       
       // Reset form
-      setTitle('');
-      setDescription('');
-      setMedia([]);
-      setTags([]);
-      setContentType('post');
+      resetForm();
+      router.back();
     } catch (error: any) {
       Alert.alert('Error', error.message);
     } finally {
@@ -159,14 +230,20 @@ export default function CreateScreen() {
       const success = await schedulePost(content.id, date);
       if (success) {
         Alert.alert('Success', 'Content scheduled successfully!');
-        // Reset form
-        setTitle('');
-        setDescription('');
-        setMedia([]);
-        setTags([]);
-        setContentType('post');
+        resetForm();
+        router.back();
       }
     }
+  };
+
+  const resetForm = () => {
+    setTitle('');
+    setDescription('');
+    setMedia([]);
+    setTags([]);
+    setContentType('post');
+    setIsEditing(false);
+    setEditingId(null);
   };
 
   const removeMedia = (index: number) => {
@@ -211,11 +288,22 @@ export default function CreateScreen() {
         colors={[colors.secondary, colors.primary]}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>Create Content</Text>
-        <Text style={styles.headerSubtitle}>Share your story with the world</Text>
+        <View style={styles.headerContent}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <ArrowLeft size={24} color={colors.surface} />
+          </TouchableOpacity>
+          <View style={styles.headerText}>
+            <Text style={styles.headerTitle}>
+              {isEditing ? 'Edit Content' : 'Create Content'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              {isEditing ? 'Update your content' : 'Share your story with the world'}
+            </Text>
+          </View>
+        </View>
       </LinearGradient>
 
-      <ScrollView style={styles.content}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Content Type Selection */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Content Type</Text>
@@ -244,7 +332,7 @@ export default function CreateScreen() {
 
         {/* Title Input */}
         <View style={styles.section}>
-          <Text style={styles.label}>Title</Text>
+          <Text style={styles.label}>Title *</Text>
           <TextInput
             style={styles.input}
             value={title}
@@ -259,7 +347,7 @@ export default function CreateScreen() {
           <View style={styles.labelRow}>
             <Text style={styles.label}>Description</Text>
             <AIAssistant
-              contentId="new"
+              contentId={editingId || "new"}
               currentText={description}
               onSuggestionApplied={setDescription}
             />
@@ -280,8 +368,8 @@ export default function CreateScreen() {
           <View style={styles.labelRow}>
             <Text style={styles.label}>Tags</Text>
             <TouchableOpacity onPress={handleGenerateTags} style={styles.generateTagsButton}>
-              <Tag size={16} color={colors.primary} />
-              <Text style={styles.generateTagsText}>Generate</Text>
+              <Sparkles size={16} color={colors.primary} />
+              <Text style={styles.generateTagsText}>AI Generate</Text>
             </TouchableOpacity>
           </View>
           
@@ -303,7 +391,7 @@ export default function CreateScreen() {
             <View style={styles.tagsContainer}>
               {tags.map((tag, index) => (
                 <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
+                  <Text style={styles.tagText}>#{tag}</Text>
                   <TouchableOpacity onPress={() => removeTag(tag)}>
                     <X size={14} color={colors.primary} />
                   </TouchableOpacity>
@@ -351,6 +439,17 @@ export default function CreateScreen() {
         <View style={styles.section}>
           <View style={styles.actionButtons}>
             <TouchableOpacity
+              style={[styles.actionButton, styles.draftButton]}
+              onPress={() => handleSubmit(false, 'draft')}
+              disabled={uploading}
+            >
+              <Save size={20} color={colors.surface} />
+              <Text style={styles.actionButtonText}>
+                {uploading ? 'Saving...' : 'Save Draft'}
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
               style={[styles.actionButton, styles.scheduleButton]}
               onPress={() => setShowScheduleModal(true)}
               disabled={uploading}
@@ -358,22 +457,22 @@ export default function CreateScreen() {
               <Calendar size={20} color={colors.surface} />
               <Text style={styles.actionButtonText}>Schedule</Text>
             </TouchableOpacity>
-            
-            <TouchableOpacity
-              style={[styles.actionButton, styles.publishButton]}
-              onPress={() => handleSubmit(false)}
-              disabled={uploading}
-            >
-              {uploading ? (
-                <Upload size={20} color={colors.surface} />
-              ) : (
-                <Check size={20} color={colors.surface} />
-              )}
-              <Text style={styles.actionButtonText}>
-                {uploading ? 'Creating...' : 'Save Draft'}
-              </Text>
-            </TouchableOpacity>
           </View>
+          
+          <TouchableOpacity
+            style={[styles.actionButton, styles.publishButton]}
+            onPress={() => handleSubmit(false, 'pending_approval')}
+            disabled={uploading}
+          >
+            {uploading ? (
+              <Upload size={20} color={colors.surface} />
+            ) : (
+              <Check size={20} color={colors.surface} />
+            )}
+            <Text style={styles.actionButtonText}>
+              {uploading ? 'Publishing...' : 'Submit for Review'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -395,6 +494,17 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 24,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: {
+    marginRight: 16,
+    padding: 4,
+  },
+  headerText: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 28,
@@ -570,6 +680,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   actionButtons: {
     flexDirection: 'row',
     gap: 12,
+    marginBottom: 12,
   },
   actionButton: {
     flex: 1,
@@ -579,6 +690,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingVertical: 16,
     borderRadius: 12,
     gap: 8,
+  },
+  draftButton: {
+    backgroundColor: colors.textSecondary,
   },
   scheduleButton: {
     backgroundColor: colors.warning,

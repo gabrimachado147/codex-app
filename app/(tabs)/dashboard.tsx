@@ -5,20 +5,31 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   SafeAreaView,
   RefreshControl,
   Alert,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { supabase, Content } from '@/lib/supabase';
-import { SearchBar } from '@/components/SearchBar';
-import { FilterChips, Filter } from '@/components/FilterChips';
+import { AdvancedSearch } from '@/components/AdvancedSearch';
+import { ContentCard } from '@/components/ContentCard';
 import { BatchActions } from '@/components/BatchActions';
-import { FileText, CreditCard as Edit, Trash2, Eye, Clock, CircleCheck as CheckCircle, CircleAlert as AlertCircle, Filter as FilterIcon, Calendar, MoveVertical as MoreVertical } from 'lucide-react-native';
+import { CommentsThread } from '@/components/CommentsThread';
+import { FileText, Plus, MessageCircle } from 'lucide-react-native';
+import { router } from 'expo-router';
 import Animated, { FadeInRight, Layout } from 'react-native-reanimated';
+
+interface SearchFilters {
+  query: string;
+  status: string[];
+  type: string[];
+  tags: string[];
+  dateFrom: Date | null;
+  dateTo: Date | null;
+}
 
 export default function DashboardScreen() {
   const { user } = useAuth();
@@ -26,10 +37,19 @@ export default function DashboardScreen() {
   const [contents, setContents] = useState<Content[]>([]);
   const [filteredContents, setFilteredContents] = useState<Content[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeFilters, setActiveFilters] = useState<Filter[]>([]);
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectionMode, setSelectionMode] = useState(false);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [showComments, setShowComments] = useState<string | null>(null);
+  
+  const [filters, setFilters] = useState<SearchFilters>({
+    query: '',
+    status: [],
+    type: [],
+    tags: [],
+    dateFrom: null,
+    dateTo: null,
+  });
 
   const styles = createStyles(colors);
 
@@ -41,7 +61,7 @@ export default function DashboardScreen() {
 
   useEffect(() => {
     applyFilters();
-  }, [contents, searchQuery, activeFilters]);
+  }, [contents, filters]);
 
   const fetchContents = async () => {
     try {
@@ -54,7 +74,16 @@ export default function DashboardScreen() {
       const { data, error } = await query;
 
       if (error) throw error;
+      
       setContents(data || []);
+      
+      // Extract unique tags
+      const allTags = new Set<string>();
+      data?.forEach(content => {
+        content.tags?.forEach((tag: string) => allTags.add(tag));
+      });
+      setAvailableTags(Array.from(allTags));
+      
     } catch (error) {
       console.error('Error fetching contents:', error);
     }
@@ -64,33 +93,46 @@ export default function DashboardScreen() {
     let filtered = [...contents];
 
     // Apply search query
-    if (searchQuery.trim()) {
+    if (filters.query.trim()) {
+      const query = filters.query.toLowerCase();
       filtered = filtered.filter(content =>
-        content.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        content.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        content.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
+        content.title.toLowerCase().includes(query) ||
+        content.description?.toLowerCase().includes(query) ||
+        content.tags?.some((tag: string) => tag.toLowerCase().includes(query))
       );
     }
 
-    // Apply active filters
-    activeFilters.forEach(filter => {
-      switch (filter.type) {
-        case 'status':
-          filtered = filtered.filter(content => content.status === filter.value);
-          break;
-        case 'type':
-          filtered = filtered.filter(content => content.type === filter.value);
-          break;
-        case 'tag':
-          filtered = filtered.filter(content => 
-            content.tags?.includes(filter.value)
-          );
-          break;
-        case 'date':
-          // Implement date range filtering
-          break;
-      }
-    });
+    // Apply status filters
+    if (filters.status.length > 0) {
+      filtered = filtered.filter(content => filters.status.includes(content.status));
+    }
+
+    // Apply type filters
+    if (filters.type.length > 0) {
+      filtered = filtered.filter(content => filters.type.includes(content.type));
+    }
+
+    // Apply tag filters
+    if (filters.tags.length > 0) {
+      filtered = filtered.filter(content =>
+        filters.tags.some(tag => content.tags?.includes(tag))
+      );
+    }
+
+    // Apply date filters
+    if (filters.dateFrom) {
+      filtered = filtered.filter(content =>
+        new Date(content.created_at) >= filters.dateFrom!
+      );
+    }
+
+    if (filters.dateTo) {
+      const endDate = new Date(filters.dateTo);
+      endDate.setHours(23, 59, 59, 999);
+      filtered = filtered.filter(content =>
+        new Date(content.created_at) <= endDate
+      );
+    }
 
     setFilteredContents(filtered);
   };
@@ -206,54 +248,8 @@ export default function DashboardScreen() {
     setSelectedItems(new Set([id]));
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'published':
-        return <CheckCircle size={16} color={colors.success} />;
-      case 'approved':
-        return <CheckCircle size={16} color={colors.success} />;
-      case 'draft':
-        return <Edit size={16} color={colors.warning} />;
-      case 'pending_approval':
-        return <Clock size={16} color={colors.info} />;
-      case 'rejected':
-        return <AlertCircle size={16} color={colors.error} />;
-      default:
-        return <Clock size={16} color={colors.textSecondary} />;
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'published':
-      case 'approved':
-        return colors.success;
-      case 'draft':
-        return colors.warning;
-      case 'pending_approval':
-        return colors.info;
-      case 'rejected':
-        return colors.error;
-      default:
-        return colors.textSecondary;
-    }
-  };
-
-  const addFilter = (filter: Filter) => {
-    setActiveFilters(prev => [...prev, filter]);
-  };
-
-  const removeFilter = (filterId: string) => {
-    setActiveFilters(prev => prev.filter(f => f.id !== filterId));
-  };
-
-  const clearAllFilters = () => {
-    setActiveFilters([]);
-  };
-
-  const showFilterModal = () => {
-    // Implement filter modal
-    Alert.alert('Filters', 'Filter modal coming soon!');
+  const handleSearch = () => {
+    applyFilters();
   };
 
   return (
@@ -262,20 +258,26 @@ export default function DashboardScreen() {
         colors={[colors.primary, colors.secondary]}
         style={styles.header}
       >
-        <Text style={styles.headerTitle}>Dashboard</Text>
-        <Text style={styles.headerSubtitle}>Manage your content</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Dashboard</Text>
+          <Text style={styles.headerSubtitle}>
+            {filteredContents.length} of {contents.length} items
+          </Text>
+        </View>
+        
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={() => router.push('/(tabs)/create')}
+        >
+          <Plus size={24} color={colors.surface} />
+        </TouchableOpacity>
       </LinearGradient>
 
-      <SearchBar
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        onFilterPress={showFilterModal}
-      />
-
-      <FilterChips
-        filters={activeFilters}
-        onRemoveFilter={removeFilter}
-        onClearAll={clearAllFilters}
+      <AdvancedSearch
+        filters={filters}
+        onFiltersChange={setFilters}
+        onSearch={handleSearch}
+        availableTags={availableTags}
       />
 
       <ScrollView
@@ -286,122 +288,42 @@ export default function DashboardScreen() {
       >
         {filteredContents.length > 0 ? (
           filteredContents.map((content, index) => (
-            <Animated.View
+            <ContentCard
               key={content.id}
-              entering={FadeInRight.delay(index * 100)}
-              layout={Layout.springify()}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.contentCard,
-                  selectedItems.has(content.id) && styles.selectedCard
-                ]}
-                onPress={() => {
-                  if (selectionMode) {
-                    toggleItemSelection(content.id);
-                  }
-                }}
-                onLongPress={() => startSelectionMode(content.id)}
-              >
-                <View style={styles.contentHeader}>
-                  <View style={styles.contentInfo}>
-                    <Text style={styles.contentTitle}>{content.title}</Text>
-                    <Text style={styles.contentDescription}>
-                      {content.description}
-                    </Text>
-                    <View style={styles.contentMeta}>
-                      <View style={styles.statusContainer}>
-                        {getStatusIcon(content.status)}
-                        <Text style={[styles.statusText, { color: getStatusColor(content.status) }]}>
-                          {content.status.replace('_', ' ')}
-                        </Text>
-                      </View>
-                      <Text style={styles.contentDate}>
-                        {new Date(content.created_at).toLocaleDateString()}
-                      </Text>
-                    </View>
-                    
-                    {content.tags && content.tags.length > 0 && (
-                      <View style={styles.tagsContainer}>
-                        {content.tags.slice(0, 3).map((tag, tagIndex) => (
-                          <View key={tagIndex} style={styles.tag}>
-                            <Text style={styles.tagText}>{tag}</Text>
-                          </View>
-                        ))}
-                        {content.tags.length > 3 && (
-                          <Text style={styles.moreTagsText}>
-                            +{content.tags.length - 3} more
-                          </Text>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                  
-                  {!selectionMode && (
-                    <View style={styles.contentActions}>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => {
-                          const nextStatus = content.status === 'draft' ? 'pending_approval' : 
-                                            content.status === 'pending_approval' ? 'approved' : 
-                                            content.status === 'approved' ? 'published' : 'draft';
-                          updateStatus(content.id, nextStatus);
-                        }}
-                      >
-                        <Eye size={16} color={colors.primary} />
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={styles.actionButton}
-                        onPress={() => deleteContent(content.id)}
-                      >
-                        <Trash2 size={16} color={colors.error} />
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                  
-                  {selectionMode && (
-                    <View style={styles.selectionIndicator}>
-                      {selectedItems.has(content.id) && (
-                        <CheckCircle size={24} color={colors.primary} />
-                      )}
-                    </View>
-                  )}
-                </View>
-
-                {content.media && content.media.length > 0 && (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <View style={styles.mediaContainer}>
-                      {content.media.map((mediaUrl, mediaIndex) => (
-                        <Image
-                          key={mediaIndex}
-                          source={{ uri: mediaUrl }}
-                          style={styles.mediaImage}
-                        />
-                      ))}
-                    </View>
-                  </ScrollView>
-                )}
-
-                {content.scheduled_at && (
-                  <View style={styles.scheduledBanner}>
-                    <Calendar size={16} color={colors.info} />
-                    <Text style={styles.scheduledText}>
-                      Scheduled for {new Date(content.scheduled_at).toLocaleDateString()}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </Animated.View>
+              content={content}
+              isSelected={selectedItems.has(content.id)}
+              selectionMode={selectionMode}
+              onPress={() => {
+                if (selectionMode) {
+                  toggleItemSelection(content.id);
+                } else {
+                  // Navigate to content detail or edit
+                  router.push(`/(tabs)/create?edit=${content.id}`);
+                }
+              }}
+              onLongPress={() => startSelectionMode(content.id)}
+              onEdit={() => router.push(`/(tabs)/create?edit=${content.id}`)}
+              onDelete={() => deleteContent(content.id)}
+              onStatusChange={(newStatus) => updateStatus(content.id, newStatus)}
+            />
           ))
         ) : (
           <View style={styles.emptyState}>
-            <FileText size={48} color={colors.textSecondary} />
+            <FileText size={64} color={colors.textSecondary} />
             <Text style={styles.emptyTitle}>No content found</Text>
             <Text style={styles.emptyDescription}>
-              {searchQuery || activeFilters.length > 0
-                ? 'Try adjusting your search or filters'
-                : 'You haven\'t created any content yet'}
+              {filters.query || filters.status.length > 0 || filters.type.length > 0 || filters.tags.length > 0
+                ? 'Try adjusting your search filters'
+                : 'Create your first piece of content to get started'}
             </Text>
+            {!filters.query && filters.status.length === 0 && filters.type.length === 0 && filters.tags.length === 0 && (
+              <TouchableOpacity
+                style={styles.createContentButton}
+                onPress={() => router.push('/(tabs)/create')}
+              >
+                <Text style={styles.createContentButtonText}>Create Content</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </ScrollView>
@@ -419,6 +341,22 @@ export default function DashboardScreen() {
           }}
         />
       )}
+
+      {/* Comments Modal */}
+      <Modal
+        visible={showComments !== null}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowComments(null)}
+      >
+        {showComments && (
+          <CommentsThread
+            contentId={showComments}
+            visible={showComments !== null}
+            onClose={() => setShowComments(null)}
+          />
+        )}
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -429,9 +367,15 @@ const createStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 24,
+  },
+  headerContent: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 28,
@@ -443,140 +387,46 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.8)',
     marginTop: 4,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
-  contentCard: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  selectedCard: {
-    borderWidth: 2,
-    borderColor: colors.primary,
-  },
-  contentHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  contentInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  contentTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 4,
-  },
-  contentDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  contentMeta: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  statusContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statusText: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginLeft: 4,
-    textTransform: 'capitalize',
-  },
-  contentDate: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  tagsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 6,
-  },
-  tag: {
-    backgroundColor: colors.primary + '20',
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  tagText: {
-    fontSize: 10,
-    color: colors.primary,
-    fontWeight: '500',
-  },
-  moreTagsText: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
-  },
-  contentActions: {
-    flexDirection: 'row',
-  },
-  actionButton: {
-    padding: 8,
-    marginLeft: 8,
-  },
-  selectionIndicator: {
-    width: 32,
-    height: 32,
+  createButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  mediaContainer: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  mediaImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  scheduledBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.info + '20',
-    borderRadius: 8,
-    padding: 8,
-    marginTop: 8,
-    gap: 6,
-  },
-  scheduledText: {
-    fontSize: 12,
-    color: colors.info,
-    fontWeight: '500',
+  content: {
+    flex: 1,
   },
   emptyState: {
     alignItems: 'center',
-    paddingVertical: 48,
+    paddingVertical: 64,
+    paddingHorizontal: 32,
   },
   emptyTitle: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
-    marginTop: 16,
+    marginTop: 24,
+    textAlign: 'center',
   },
   emptyDescription: {
     fontSize: 16,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: 12,
+    lineHeight: 24,
+  },
+  createContentButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    marginTop: 24,
+  },
+  createContentButtonText: {
+    color: colors.surface,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
