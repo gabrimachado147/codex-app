@@ -10,9 +10,14 @@ export interface Content {
   user_id: string;
   title: string;
   description: string;
-  type: 'post' | 'story' | 'video';
+  type: 'post' | 'carousel' | 'video' | 'story';
   media: string[];
-  status: 'draft' | 'published' | 'review';
+  tags: string[];
+  status: 'draft' | 'pending_approval' | 'approved' | 'rejected' | 'published';
+  scheduled_at?: string | null;
+  published_at?: string | null;
+  view_count: number;
+  engagement_score: number;
   created_at: string;
 }
 
