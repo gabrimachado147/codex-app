@@ -9,19 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { useTheme } from '@/contexts/ThemeContext';
-import { 
-  Eye, 
-  Heart, 
-  MessageCircle, 
-  Share, 
-  MoreVertical, 
-  Calendar,
-  CheckCircle,
-  Clock,
-  AlertCircle,
-  Edit3,
-  Trash2
-} from 'lucide-react-native';
+import { Eye, Heart, MessageCircle, Share, MoveVertical as MoreVertical, Calendar, CircleCheck as CheckCircle, Clock, CircleAlert as AlertCircle, CreditCard as Edit3, Trash2 } from 'lucide-react-native';
 import Animated, { FadeIn, Layout } from 'react-native-reanimated';
 
 interface ContentCardProps {

@@ -11,7 +11,7 @@ import {
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { MessageCircle, Send, Reply, MoreVertical, Trash2 } from 'lucide-react-native';
+import { MessageCircle, Send, Reply, MoveVertical as MoreVertical, Trash2 } from 'lucide-react-native';
 import Animated, { FadeIn, Layout } from 'react-native-reanimated';
 
 interface Comment {
