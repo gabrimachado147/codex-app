@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
-import { Wand2, Sparkles, Brain, Target, X } from 'lucide-react-native';
+import { Wand as Wand2, Sparkles, Brain, Target, X } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAI, AIStyle, AISuggestionType } from '@/hooks/useAI';
 import Animated, { FadeIn, SlideInUp } from 'react-native-reanimated';

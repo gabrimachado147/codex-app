@@ -17,18 +17,7 @@ import { supabase, Content } from '@/lib/supabase';
 import { SearchBar } from '@/components/SearchBar';
 import { FilterChips, Filter } from '@/components/FilterChips';
 import { BatchActions } from '@/components/BatchActions';
-import { 
-  FileText, 
-  Edit, 
-  Trash2, 
-  Eye, 
-  Clock, 
-  CheckCircle,
-  AlertCircle,
-  Filter as FilterIcon,
-  Calendar,
-  MoreVertical
-} from 'lucide-react-native';
+import { FileText, CreditCard as Edit, Trash2, Eye, Clock, CircleCheck as CheckCircle, CircleAlert as AlertCircle, Filter as FilterIcon, Calendar, MoveVertical as MoreVertical } from 'lucide-react-native';
 import Animated, { FadeInRight, Layout } from 'react-native-reanimated';
 
 export default function DashboardScreen() {

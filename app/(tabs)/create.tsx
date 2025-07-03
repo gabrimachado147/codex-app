@@ -21,18 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { AIAssistant } from '@/components/AIAssistant';
 import { ScheduleModal } from '@/components/ScheduleModal';
-import { 
-  Camera, 
-  ImageIcon, 
-  Video, 
-  Upload,
-  X,
-  Check,
-  ArrowLeft,
-  Calendar,
-  Tag,
-  Plus
-} from 'lucide-react-native';
+import { Camera, Image as ImageIcon, Video, Upload, X, Check, ArrowLeft, Calendar, Tag, Plus } from 'lucide-react-native';
 
 export default function CreateScreen() {
   const { user } = useAuth();

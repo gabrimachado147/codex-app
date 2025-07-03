@@ -13,20 +13,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { router } from 'expo-router';
-import { 
-  User, 
-  Settings, 
-  LogOut, 
-  Bell, 
-  Shield, 
-  HelpCircle,
-  Mail,
-  Calendar,
-  ChevronRight,
-  Moon,
-  Sun,
-  Palette
-} from 'lucide-react-native';
+import { User, Settings, LogOut, Bell, Shield, CircleHelp as HelpCircle, Mail, Calendar, ChevronRight, Moon, Sun, Palette } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
