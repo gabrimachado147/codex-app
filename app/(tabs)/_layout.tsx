@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Chrome as Home, Camera, FileText, ChartBar as BarChart3, Settings } from 'lucide-react-native';
+import { Chrome as Home, Camera, FileText, ChartBar as BarChart3, Clock, Settings } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
@@ -59,6 +59,15 @@ export default function TabLayout() {
           title: 'Analytics',
           tabBarIcon: ({ size, color }) => (
             <BarChart3 size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="scheduled"
+        options={{
+          title: 'Scheduled',
+          tabBarIcon: ({ size, color }) => (
+            <Clock size={size} color={color} />
           ),
         }}
       />
