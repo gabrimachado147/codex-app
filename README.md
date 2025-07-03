@@ -2,35 +2,48 @@
 
 A simple content management app built with Expo.
 
-## Getting Started
+## Installation
 
-1. **Install Node.js**
-   - Use the latest LTS version (Node 18+ works well with Expo).
-
+1. **Install Node.js** – the latest LTS release (Node 18+) works well with Expo.
 2. **Install dependencies**
    ```bash
    npm install
    ```
-   The repository includes an `.npmrc` file which enables `legacy-peer-deps` for compatibility.
+   The repository includes an `.npmrc` file so legacy peer dependencies install without errors.
+3. **Available scripts**
+   - `npm run dev` – start the Expo development server.
+   - `npm run build:web` – bundle the project for the web platform.
+   - `npm run lint` – run Expo's linter.
 
-3. **Run the development server**
-   ```bash
-   npm run dev
-   ```
-   This executes `npx expo start` with telemetry disabled. Expo Developer Tools will open in your browser.
+## Environment Variables
 
-4. **Open the app**
-   - Scan the QR code with the Expo Go app on your device, **or**
-   - Launch an Android or iOS simulator from Expo Developer Tools.
+Create a `.env` file at the project root with your Supabase credentials:
 
-### Additional Notes
+```bash
+SUPABASE_URL=<your-supabase-url>
+SUPABASE_ANON_KEY=<your-anon-key>
+SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
+```
 
-- You can install the Expo CLI globally if you plan to use Expo commands directly:
-  ```bash
-  npm install -g expo-cli
-  ```
-- For iOS development, ensure Xcode is installed. For Android, install Android Studio or use the Expo Go app on a physical device.
+`SUPABASE_URL` and `SUPABASE_ANON_KEY` are used by the Expo app while `SUPABASE_SERVICE_ROLE_KEY` is required when deploying Supabase functions.
 
-### Web Support
+## Running the Expo App
 
-From Expo Developer Tools, press `w` to open the web version of the app in your browser.
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Expo Developer Tools will open in your browser. Scan the QR code with Expo Go or launch an emulator to view the app. Press `w` in the terminal to open the web version.
+
+## Deploying Supabase Functions
+
+The project contains edge functions under `supabase/functions`. Deploy them using the Supabase CLI:
+
+```bash
+supabase functions deploy ai-suggestions --env-file .env
+supabase functions deploy schedule-publisher --env-file .env
+```
+
+Ensure your `.env` file contains the credentials listed above or configure secrets within your Supabase project before deployment.
