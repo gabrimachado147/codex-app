@@ -22,7 +22,7 @@ export default function HomeScreen() {
     totalContents: 0,
     publishedContents: 0,
     draftContents: 0,
-    reviewContents: 0,
+    pendingContents: 0,
   });
   const [refreshing, setRefreshing] = useState(false);
 
@@ -61,13 +61,13 @@ export default function HomeScreen() {
       const totalContents = data?.length || 0;
       const publishedContents = data?.filter(c => c.status === 'published').length || 0;
       const draftContents = data?.filter(c => c.status === 'draft').length || 0;
-      const reviewContents = data?.filter(c => c.status === 'review').length || 0;
+      const pendingContents = data?.filter(c => c.status === 'pending_approval').length || 0;
 
       setStats({
         totalContents,
         publishedContents,
         draftContents,
-        reviewContents,
+        pendingContents,
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -85,10 +85,14 @@ export default function HomeScreen() {
     switch (status) {
       case 'published':
         return '#10B981';
+      case 'approved':
+        return '#10B981';
       case 'draft':
         return '#F59E0B';
-      case 'review':
+      case 'pending_approval':
         return '#8B5CF6';
+      case 'rejected':
+        return '#EF4444';
       default:
         return '#6B7280';
     }
@@ -140,8 +144,8 @@ export default function HomeScreen() {
             </View>
             <View style={styles.statCard}>
               <Users size={24} color="#8B5CF6" />
-              <Text style={styles.statNumber}>{stats.reviewContents}</Text>
-              <Text style={styles.statLabel}>In Review</Text>
+              <Text style={styles.statNumber}>{stats.pendingContents}</Text>
+              <Text style={styles.statLabel}>Pending</Text>
             </View>
           </View>
         </View>

@@ -6,7 +6,7 @@ export interface AnalyticsData {
   totalContents: number;
   publishedContents: number;
   draftContents: number;
-  reviewContents: number;
+  pendingContents: number;
   totalViews: number;
   avgEngagement: number;
   postsPerDay: { date: string; count: number }[];
@@ -43,7 +43,7 @@ export function useAnalytics() {
       const totalContents = contents?.length || 0;
       const publishedContents = contents?.filter(c => c.status === 'published').length || 0;
       const draftContents = contents?.filter(c => c.status === 'draft').length || 0;
-      const reviewContents = contents?.filter(c => c.status === 'review').length || 0;
+      const pendingContents = contents?.filter(c => c.status === 'pending_approval').length || 0;
       const totalViews = contents?.reduce((sum, c) => sum + (c.view_count || 0), 0) || 0;
       const avgEngagement = contents?.reduce((sum, c) => sum + (c.engagement_score || 0), 0) / totalContents || 0;
 
@@ -68,7 +68,7 @@ export function useAnalytics() {
       const statusDistribution = [
         { status: 'published', count: publishedContents },
         { status: 'draft', count: draftContents },
-        { status: 'review', count: reviewContents },
+        { status: 'pending_approval', count: pendingContents },
       ];
 
       // Top tags
@@ -88,7 +88,7 @@ export function useAnalytics() {
         totalContents,
         publishedContents,
         draftContents,
-        reviewContents,
+        pendingContents,
         totalViews,
         avgEngagement,
         postsPerDay,
