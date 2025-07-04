@@ -14,8 +14,6 @@ config.resolver = {
   ...config.resolver,
   sourceExts: [...config.resolver.sourceExts, 'ts', 'tsx'],
   platforms: ['ios', 'android', 'native', 'web'],
-  unstable_enablePackageExports: true,
-  unstable_conditionNames: ['require', 'import', 'react-native'],
   alias: {
     '@': path.resolve(__dirname),
   },
