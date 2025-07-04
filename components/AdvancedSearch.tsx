@@ -121,7 +121,7 @@ export function AdvancedSearch({
           {filters.query.length > 0 && (
             <TouchableOpacity
               onPress={() => onFiltersChange({ ...filters, query: '' })}
-              style={styles.clearButton}
+              style={styles.searchClearButton}
             >
               <X size={20} color={colors.textSecondary} />
             </TouchableOpacity>
@@ -355,8 +355,8 @@ export function AdvancedSearch({
             </ScrollView>
 
             <View style={styles.modalFooter}>
-              <TouchableOpacity onPress={clearAllFilters} style={styles.clearButton}>
-                <Text style={styles.clearButtonText}>Clear All</Text>
+              <TouchableOpacity onPress={clearAllFilters} style={styles.modalClearButton}>
+                <Text style={styles.modalClearButtonText}>Clear All</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
@@ -418,7 +418,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: 16,
     color: colors.text,
   },
-  clearButton: {
+  searchClearButton: {
     padding: 4,
   },
   filterButton: {
@@ -565,7 +565,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderTopColor: colors.border,
     gap: 12,
   },
-  clearButton: {
+  modalClearButton: {
     flex: 1,
     backgroundColor: colors.surface,
     borderWidth: 1,
@@ -574,7 +574,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingVertical: 16,
     alignItems: 'center',
   },
-  clearButtonText: {
+  modalClearButtonText: {
     fontSize: 16,
     color: colors.text,
     fontWeight: '500',
