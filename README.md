@@ -13,7 +13,7 @@ A simple content management app built with Expo.
 3. **Available scripts**
    - `npm run dev` – start the Expo development server.
    - `npm run build:web` – bundle the project for the web platform.
-   - `npm run lint` – run Expo's linter.
+   - `npm run lint` – run the linter using the repo's ESLint config.
 
 ## Environment Variables
 
