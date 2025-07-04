@@ -14,25 +14,10 @@ config.resolver = {
   ...config.resolver,
   sourceExts: [...config.resolver.sourceExts, 'ts', 'tsx'],
   platforms: ['ios', 'android', 'native', 'web'],
+  unstable_enablePackageExports: true,
+  unstable_conditionNames: ['require', 'import', 'react-native'],
   alias: {
     '@': path.resolve(__dirname),
-  },
-};
-
-// Ensure proper Metro server configuration
-config.server = {
-  ...config.server,
-  enhanceMiddleware: (middleware) => {
-    return (req, res, next) => {
-      // Handle TypeScript imports properly
-      if (req.url && req.url.endsWith('.ts')) {
-        req.url = req.url.replace('.ts', '.js');
-      }
-      if (req.url && req.url.endsWith('.tsx')) {
-        req.url = req.url.replace('.tsx', '.js');
-      }
-      return middleware(req, res, next);
-    };
   },
 };
 
