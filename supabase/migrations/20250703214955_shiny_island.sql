@@ -22,6 +22,13 @@
     - `on_content_status_change` - Automatically log status changes on contents table
 */
 
+-- Clean up any previous implementation
+DROP TRIGGER IF EXISTS contents_initial_status ON public.contents;
+DROP TRIGGER IF EXISTS contents_status_change ON public.contents;
+DROP FUNCTION IF EXISTS record_status_change();
+DROP FUNCTION IF EXISTS calculate_status_time(uuid);
+DROP TABLE IF EXISTS public.content_status_history CASCADE;
+
 -- Tabela para armazenar o histórico de mudanças de status
 CREATE TABLE IF NOT EXISTS public.content_status_history (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
